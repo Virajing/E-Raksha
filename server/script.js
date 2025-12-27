@@ -25,11 +25,27 @@ app.use((req, res, next) => {
     next();
 });
 
-// ---------- MULTER (RAM upload) ----------
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// ---------- MULTER (Disk upload for reliability) ----------
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadsDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
+    },
+});
+
 const upload = multer({
-    storage: multer.memoryStorage(),
+    storage: storage,
     limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB max
+        fileSize: 20 * 1024 * 1024, // Increased to 20MB
     },
     fileFilter: (req, file, cb) => {
         if (!file.mimetype.startsWith("audio/")) {
@@ -49,23 +65,25 @@ if (!process.env.GROQ_API_KEY) {
     });
 }
 
-async function transcribeAudio(buffer, filename) {
+async function transcribeAudio(filePath) {
     if (!groq) return "[Transcription unavailable — missing API key]";
 
     try {
-        console.log("🔊 Transcribing with Whisper...");
+        console.log(`🔊 Transcribing: ${path.basename(filePath)}`);
 
-        // Use Groq's internal helper to convert buffer to a file-like object
         const transcription = await groq.audio.transcriptions.create({
-            file: await Groq.toFile(buffer, filename || "audio.mp3"),
+            file: fs.createReadStream(filePath),
             model: "whisper-large-v3-turbo",
             response_format: "json",
         });
 
-        console.log("🔊 Transcription Complete");
+        console.log("✅ Transcription successful");
         return transcription.text;
     } catch (err) {
-        console.error("❌ Transcription error:", err);
+        console.error("❌ Transcription error:", err.message);
+        if (err.response) {
+            console.error("DEBUG INFO:", JSON.stringify(err.response.data || err.response));
+        }
         return `[Transcription failed: ${err.message}]`;
     }
 }
@@ -103,7 +121,7 @@ Format:
 
 // ---------- ROUTES ----------
 app.post("/process-call", upload.single("audio"), async (req, res) => {
-    console.log("🎤 /process-call request");
+    console.log("🎤 Request received:", req.file ? `${req.file.filename} (${req.file.size} bytes)` : "No file");
 
     if (!req.file) {
         return res.status(400).json({
@@ -113,8 +131,13 @@ app.post("/process-call", upload.single("audio"), async (req, res) => {
     }
 
     try {
-        const transcript = await transcribeAudio(req.file.buffer, req.file.originalname);
+        const transcript = await transcribeAudio(req.file.path);
         const analysis = await analyzeWithAI(transcript);
+
+        // Delete temporary file after processing
+        fs.unlink(req.file.path, (err) => {
+            if (err) console.error("Error deleting temp file:", err);
+        });
 
         res.json({
             success: true,
@@ -122,9 +145,15 @@ app.post("/process-call", upload.single("audio"), async (req, res) => {
             analysis,
         });
 
-        console.log("📤 Responded with success");
+        console.log("📤 Analysis completed successfully");
     } catch (err) {
-        console.error("🔥 Error:", err);
+        console.error("🔥 Server error:", err);
+
+        // Ensure file is deleted even on error
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
+
         res.status(500).json({
             success: false,
             error: err.message || "Internal server error",
