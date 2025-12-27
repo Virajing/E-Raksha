@@ -69,10 +69,15 @@ async function transcribeAudio(filePath) {
     if (!groq) return "[Transcription unavailable — missing API key]";
 
     try {
-        console.log(`🔊 Transcribing: ${path.basename(filePath)}`);
+        const stats = fs.statSync(filePath);
+        console.log(`🔊 Processing file: ${path.basename(filePath)} (${stats.size} bytes)`);
+
+        if (stats.size === 0) {
+            throw new Error("File is empty (0 bytes)");
+        }
 
         const transcription = await groq.audio.transcriptions.create({
-            file: fs.createReadStream(filePath),
+            file: await Groq.toFile(fs.readFileSync(filePath), path.basename(filePath)),
             model: "whisper-large-v3-turbo",
             response_format: "json",
         });
@@ -81,9 +86,6 @@ async function transcribeAudio(filePath) {
         return transcription.text;
     } catch (err) {
         console.error("❌ Transcription error:", err.message);
-        if (err.response) {
-            console.error("DEBUG INFO:", JSON.stringify(err.response.data || err.response));
-        }
         return `[Transcription failed: ${err.message}]`;
     }
 }
