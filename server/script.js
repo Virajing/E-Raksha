@@ -10,6 +10,13 @@ const Groq = require("groq-sdk");
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('Created uploads directory');
+}
+
 app.use(cors({
     origin: [
         "http://localhost:5173",
