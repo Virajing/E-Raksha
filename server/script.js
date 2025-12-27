@@ -8,10 +8,16 @@ require("dotenv").config();
 const Groq = require("groq-sdk");
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 10000;
 
 app.use(cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173", "http://127.0.0.1:5500"],
+    origin: [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5500",
+        "https://e-raksha-frontend.onrender.com",
+        process.env.FRONTEND_URL
+    ].filter(Boolean),
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type"]
 }));
