@@ -15,8 +15,7 @@ app.use(cors({
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5500",
-        "https://e-raksha-frontend.onrender.com",
-        process.env.FRONTEND_URL
+        "https://e-raksha-six.vercel.app/"
     ].filter(Boolean),
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type"]
