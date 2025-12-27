@@ -13,7 +13,7 @@ import "./App.css";
 
 const BACKEND_URL =
   import.meta.env.VITE_API_URL?.replace(/\/$/, "") ||
-  "https://your-backend-domain.vercel.app"; // fallback for prod
+  "http://localhost:5050"; // fallback for local dev
 
 function App() {
   const [file, setFile] = useState(null);

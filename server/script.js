@@ -47,13 +47,19 @@ if (!process.env.GROQ_API_KEY) {
     });
 }
 
-async function transcribeAudio(buffer) {
+async function transcribeAudio(buffer, filename) {
     if (!groq) return "[Transcription unavailable — missing API key]";
 
     try {
         console.log("🔊 Transcribing with Whisper...");
+
+        // Create a Blob from buffer for Groq API (Node.js compatible)
+        const blob = new Blob([buffer], { type: "audio/mpeg" });
+        // Add name property for the API
+        blob.name = filename || "audio.mp3";
+
         const transcription = await groq.audio.transcriptions.create({
-            file: buffer,
+            file: blob,
             model: "whisper-large-v3-turbo",
             response_format: "json",
         });
@@ -109,7 +115,7 @@ app.post("/process-call", upload.single("audio"), async (req, res) => {
     }
 
     try {
-        const transcript = await transcribeAudio(req.file.buffer);
+        const transcript = await transcribeAudio(req.file.buffer, req.file.originalname);
         const analysis = await analyzeWithAI(transcript);
 
         res.json({
