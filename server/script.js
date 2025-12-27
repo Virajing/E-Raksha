@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
+const fs = require("fs");
+const path = require("path");
 require("dotenv").config();
 const Groq = require("groq-sdk");
 
@@ -53,13 +55,9 @@ async function transcribeAudio(buffer, filename) {
     try {
         console.log("🔊 Transcribing with Whisper...");
 
-        // Create a Blob from buffer for Groq API (Node.js compatible)
-        const blob = new Blob([buffer], { type: "audio/mpeg" });
-        // Add name property for the API
-        blob.name = filename || "audio.mp3";
-
+        // Use Groq's internal helper to convert buffer to a file-like object
         const transcription = await groq.audio.transcriptions.create({
-            file: blob,
+            file: await Groq.toFile(buffer, filename || "audio.mp3"),
             model: "whisper-large-v3-turbo",
             response_format: "json",
         });
